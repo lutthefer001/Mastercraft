@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="display: flex; justify-content: center; padding: 10rem 2rem;">
+    <div class="glass" style="padding: 3rem; border-radius: 30px; width: 450px; text-align: center;">
+        <i data-lucide="user" style="width: 60px; height: 60px; color: var(--neon-green); margin-bottom: 2rem;"></i>
+        <h2 style="font-size: 2rem; margin-bottom: 2.5rem;">PLAYER <span class="text-gradient">REGISTER</span></h2>
+        <form method="POST" style="display: flex; flex-direction: column; gap: 1.2rem;">
+            <input class="admin-input" name="name" placeholder="O'yindagi ismingiz" required />
+            <button class="btn btn-neon" type="submit">ENTER SERVER SITE</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

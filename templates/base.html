@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mastercraft - Minecraft Server</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div class="mesh-bg"></div>
+    <div class="grid-overlay"></div>
+
+    <!-- Modals (Profile & Payment) injected via JS when needed, or we can prerender them -->
+    {% if user %}
+    <div id="profile-modal" class="modal-overlay" style="display: none;">
+        <div class="glass animate-float modal-content">
+            <button class="close-btn" onclick="toggleModal('profile-modal')">&times;</button>
+            <div style="padding: 3rem 2rem; width: 100%;">
+                <div style="text-align: center; margin-bottom: 3rem;">
+                    <div style="display: inline-block; padding: 25px 50px; background: rgba(0,255,255,0.05); border: 2px solid var(--neon-cyan); border-radius: 25px; box-shadow: 0 0 40px rgba(0,255,255,0.15);">
+                        <h2 style="font-size: 4.5rem; font-weight: 950; font-family: 'Space Grotesk'; margin: 0;" class="text-gradient">{{ user.name }}</h2>
+                        <div class="rank-badge" style="display: inline-block; margin-top: 15px; font-size: 1.2rem;">{{ user.p_rank }}</div>
+                    </div>
+                </div>
+                
+                <h3 style="text-align: center; margin-bottom: 2rem;">SERVERDAGI <span class="text-gradient">PROFILINGIZ</span></h3>
+                <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+                    <div class="stat-card">
+                        <div class="stat-title"><i data-lucide="wallet"></i> Balans (Coins)</div>
+                        <div class="stat-val neon-green">{{ user.coins }}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-title"><i data-lucide="gem"></i> Tokenlar</div>
+                        <div class="stat-val text-orange">{{ user.tokens }}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-title"><i data-lucide="crown"></i> O'yinchi Rangi</div>
+                        <div class="stat-val neon-cyan">{{ user.p_rank }}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-title"><i data-lucide="package"></i> Faol Kit</div>
+                        <div class="stat-val">{{ user.active_kit }}</div>
+                    </div>
+                </div>
+
+                {% if user.pending_items|length > 0 %}
+                <div class="glass" style="margin-top: 2rem; padding: 1.5rem; border-radius: 15px; border: 1px solid #ffaa0033;">
+                    <div style="color: #ffaa00; font-weight: 800; font-size: 0.9rem; margin-bottom: 10px;">KUTILAYOTGAN XARIDLAR</div>
+                    <div style="color: #ccc;">
+                        {% for item in user.pending_items %}
+                            {{ item.item_name }}{% if not loop.last %}, {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <form action="{{ url_for('logout') }}" style="margin-top: 3rem;">
+                    <button type="submit" class="btn btn-danger" style="width: 100%; padding: 1.2rem; display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 800; font-size: 1.1rem; border-radius: 15px;">
+                        <i data-lucide="log-out"></i> XISOBDAN CHIQISH
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div id="payment-modal" class="modal-overlay" style="display: none;">
+        <div class="glass animate-float payment-content">
+            <button class="close-btn" onclick="toggleModal('payment-modal')">&times;</button>
+            <div class="payment-header">
+                <i data-lucide="wallet" class="wallet-icon"></i>
+                <h2>TO'LOV QILISH</h2>
+                <p>To'lovni amalga oshirish: <strong id="pay-item-name"></strong></p>
+                <div class="pay-price" id="pay-item-price"></div>
+            </div>
+            <form onsubmit="handlePayment(event)">
+                <div class="form-group">
+                    <label>KARTA RAQAMI</label>
+                    <input required class="admin-input" id="card-num" placeholder="0000 0000 0000 0000" maxlength="19" oninput="formatCard(this)">
+                </div>
+                <div class="form-row">
+                    <div class="form-group" style="flex: 1;">
+                        <label>AMAL QILISH</label>
+                        <input required class="admin-input" id="card-exp" placeholder="MM/YY" maxlength="5" oninput="formatExpiry(this)">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>CVC (Ixtiyoriy)</label>
+                        <input type="password" class="admin-input" id="card-cvc" placeholder="***" maxlength="3" oninput="this.value = this.value.replace(/\D/g, '')">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-neon pay-btn" id="pay-submit-btn">TO'LASH VA OLISH</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Inventory Modal -->
+    <div id="inventory-modal" class="modal-overlay" style="display: none;">
+        <div class="glass animate-float inv-content" id="inv-content-box">
+            <button class="close-btn" onclick="toggleModal('inventory-modal')">&times;</button>
+            <div class="inv-header">
+                <div class="inv-icon-box" id="inv-icon-box"></div>
+                <div>
+                    <h3 id="inv-title"></h3>
+                    <p>Ushbu narsalar sizga beriladi!</p>
+                </div>
+            </div>
+            <div class="inv-slots" id="inv-slots">
+                <!-- Slots generated by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Navbar -->
+    <nav class="glass site-nav">
+        <a href="/" class="nav-logo">
+            <img src="{{ url_for('static', filename='logo.png') }}" style="height: 50px; border-radius: 10px; margin-right: 10px;" alt="Logo">
+            <span>MASTER<span class="text-gradient">CRAFT</span></span>
+        </a>
+        
+        <div class="nav-links">
+            <a href="/" class="{{ 'text-gradient' if request.path == '/' else '' }}">HOME</a>
+            <a href="/kits" class="{{ 'text-gradient' if request.path == '/kits' else '' }}">RANKS & KITS</a>
+            <a href="/store" class="{{ 'text-gradient' if request.path == '/store' else '' }}">STORE</a>
+            <a href="/admin" class="admin-link"><i data-lucide="settings"></i> ADMIN</a>
+        </div>
+
+        <div class="nav-auth">
+            {% if session.get('is_admin') %}
+                <div class="admin-badge hover-glow" onclick="window.location='/admin'" style="cursor: pointer; padding: 10px 20px; background: rgba(0, 255, 255, 0.1); border-radius: 12px; border: 1px solid var(--neon-cyan);">
+                    <i data-lucide="shield-check"></i> ADMIN SESSiyasi
+                </div>
+            {% endif %}
+            {% if user %}
+                <div class="user-profile glass hover-glow" onclick="toggleModal('profile-modal')" style="padding: 10px 25px;">
+                    <span class="text-gradient" style="font-weight: 900; font-family: 'Space Grotesk'; font-size: 1.2rem; filter: drop-shadow(0 0 5px var(--neon-cyan)); text-transform: uppercase;">{{ user.name }}</span>
+                </div>
+            {% else %}
+                <a href="/login" class="btn-neon nav-login"><i data-lucide="log-in"></i> PLAYER LOGIN</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>

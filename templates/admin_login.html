@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="display: flex; justify-content: center; padding: 10rem 2rem;">
+    <div class="glass" style="padding: 3rem; border-radius: 24px; width: 400px; text-align: center;">
+        <i data-lucide="shield-check" style="width: 60px; height: 60px; color: var(--neon-green); margin-bottom: 1.5rem;"></i>
+        <h2 style="margin-bottom: 2rem;">ADMIN ENTRANCE</h2>
+        {% if error %}<p style="color: red; margin-bottom: 1rem;">{{ error }}</p>{% endif %}
+        <form method="POST" style="display: flex; flex-direction: column; gap: 1rem;">
+            <input class="admin-input" name="login" placeholder="Login" required />
+            <input class="admin-input" type="password" name="password" placeholder="Password" required />
+            <button class="btn btn-neon" type="submit">LOGIN</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

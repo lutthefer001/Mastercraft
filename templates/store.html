@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="padding: 8rem 2rem;">
+    <h1 style="font-size: 5rem; text-align: center; margin-bottom: 6rem;"><span class="text-gradient">SERVER SHOP</span></h1>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 4rem; max-width: 1300px; margin: 0 auto;">
+        {% for item in items %}
+        <div class="glass animate-float" style="padding: 4rem 3rem; border-radius: 30px; text-align: center; border: 1px solid {{ item.color }}; box-shadow: 0 0 20px {{ item.color }}22;">
+            <div style="font-size: 6rem; margin-bottom: 2rem; height: 100px;">
+                {% if 'http' in item.icon %}
+                    <img src="{{ item.icon }}" style="width: 100px; height: 100px; object-fit: contain;">
+                {% else %}
+                    {{ item.icon }}
+                {% endif %}
+            </div>
+            <h2 style="font-size: 2.5rem; color: {{ item.color }};">{{ item.name }}</h2>
+            <p style="color: #888; margin: 2rem 0; font-size: 1.1rem;">{{ item.description }}</p>
+            <div style="font-size: 3rem; font-weight: 900; margin-bottom: 3rem; color: {{ item.color }};">{{ item.price }}</div>
+            <button onclick="openPayment('{{ item.name|escape }}', '{{ item.price|escape }}')" class="btn" style="width: 100%; font-size: 1.2rem; background: {{ item.color }}; color: #000; border: none; font-weight: 800; box-shadow: 0 0 15px {{ item.color }}55;">PURCHASE</button>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
