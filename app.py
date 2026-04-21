@@ -389,6 +389,14 @@ def api_admin(action):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/debug-db')
+def debug_db():
+    if not session.get('is_admin'): return "Admin emassiz! Avval admin panelga login qiling."
+    u = os.environ.get("VITE_SUPABASE_URL", "TOPILMADI")
+    k = os.environ.get("VITE_SUPABASE_ANON_KEY", "TOPILMADI")
+    status = "ULANGAN" if supabase else "ULANMAGAN"
+    return f"<b>Status:</b> {status} <br/> <b>URL:</b> {u[:15]}... <br/> <b>Key Start:</b> {k[:10]}..."
+
 @app.route('/api/search_player')
 def search_player():
     name = request.args.get('name', '').strip()
