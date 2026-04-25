@@ -162,21 +162,60 @@ def get_cached_items():
             
     return CACHE['items'] or []
 
+def get_user_orders(username):
+    global supabase
+    if not supabase: return []
+    try:
+        res = supabase.table('orders').select('*').eq('player_name', username).execute()
+        return res.data if res and res.data else []
+    except:
+        return []
+
 @app.context_processor
 def inject_globals():
     user = session.get('user')
     if user:
         name = user['name']
-        hash_val = sum(ord(c) for c in name)
-        coins = 1000 + (hash_val * 45) % 90000
-        tokens = (hash_val * 7) % 500
+        all_cached = get_cached_items()
         
+        user_record = next((i for i in all_cached if i['name'] == f"USER::{name}"), None)
+        coins, tokens = 0, 0
+        if user_record:
+            price_field = str(user_record.get('price', '0|0'))
+            if '|' in price_field:
+                try:
+                    c, t = price_field.split('|', 1)
+                    coins, tokens = int(c), int(t)
+                except: pass
+        else:
+            # Fallback for mock if not in db
+            hash_val = sum(ord(c) for c in name)
+            coins = 1000 + (hash_val * 45) % 90000
+            tokens = (hash_val * 7) % 500
+
+        hash_val = sum(ord(c) for c in name)
         rankList = ['PLAYER', 'VIP', 'VIP+', 'LEGEND', 'DONATOR', 'GOLD', 'NITRO', 'COMET (YT)', 'HERO', 'ULTRA', 'PRIME']
         p_rank = rankList[hash_val % len(rankList)]
         
         kitList = ["Yo'q", 'WARRIOR Kit', 'BRUTE Kit', 'MINER Kit', 'ARCHER Kit', 'BUILDER Kit', 'VIP Kit', 'PRIME Kit']
         active_kit = kitList[(hash_val * 19) % len(kitList)]
         
+        pending_items = []
+        user_orders = get_user_orders(name)
+        
+        all_cached = get_cached_items()
+        kit_names = [i['name'].replace('KIT::', '') for i in all_cached if str(i.get('name', '')).startswith('KIT::')]
+        
+        for o in user_orders:
+            item_n = o.get('item_name', '')
+            if o.get('status') != 'Bajarildi':
+                pending_items.append(o)
+            else:
+                is_kit = (item_n in kit_names) or any(k in item_n.upper() for k in ['KIT', 'VIP', 'RANK', 'MVP', 'HERO', 'ULTRA', 'PRIME', 'LEGEND', 'COMET', 'NITRO', 'GOLD'])
+                if is_kit:
+                    active_kit = item_n
+                    p_rank = item_n.replace(' Kit', '').replace(' KIT', '').replace(' kit', '')
+
         return {
             'user': {
                 'name': name,
@@ -184,7 +223,7 @@ def inject_globals():
                 'coins': f"{coins:,}",
                 'tokens': tokens,
                 'active_kit': active_kit,
-                'pending_items': [] 
+                'pending_items': pending_items
             },
             'server_ip': SERVER_IP,
             'is_admin_page': request.path.startswith('/admin')
@@ -207,15 +246,56 @@ import urllib.parse
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
+        action = request.form.get('action', 'login')
         name = request.form.get('name').strip()
+        password = request.form.get('password', '').strip()
         safe_name = urllib.parse.quote(name)
         
-        session['user'] = {
-            'name': name,
-            'avatar': f'https://mc-heads.net/avatar/{safe_name}/100',
-            'bodyUrl': f'https://mc-heads.net/player/body/{safe_name}/400'
-        }
-        return redirect(url_for('home'))
+        if not supabase:
+            return render_template('login.html', error="Ma'lumotlar bazasi ulanmagan!")
+
+        user_key = f"USER::{name}"
+        try:
+            res = supabase.table('items').select('*').eq('name', user_key).execute()
+        except:
+            return render_template('login.html', error="Tarmoqda xatolik!")
+            
+        if action == 'register':
+            if res.data:
+                return render_template('login.html', error="Bunday ism band! Boshqa ism tanlang.")
+            
+            try:
+                supabase.table('items').insert({
+                    'name': user_key,
+                    'description': password,
+                    'price': '0|0',
+                    'icon': f'https://api.dicebear.com/9.x/pixel-art/svg?seed={safe_name}'
+                }).execute()
+            except Exception as e:
+                return render_template('login.html', error=f"Xatolik: {e}")
+                
+            session['user'] = {
+                'name': name,
+                'avatar': f'https://api.dicebear.com/9.x/pixel-art/svg?seed={safe_name}',
+                'bodyUrl': f'https://api.dicebear.com/9.x/adventurer/svg?seed={safe_name}'
+            }
+            return redirect(url_for('home'))
+            
+        elif action == 'login':
+            if not res.data:
+                return render_template('login.html', error="Foydalanuvchi topilmadi! Avval ro'yxatdan o'ting.")
+            
+            user_data = res.data[0]
+            if user_data.get('description') != password:
+                return render_template('login.html', error="Parol noto'g'ri!")
+            
+            session['user'] = {
+                'name': name,
+                'avatar': f'https://api.dicebear.com/9.x/pixel-art/svg?seed={safe_name}',
+                'bodyUrl': f'https://api.dicebear.com/9.x/adventurer/svg?seed={safe_name}'
+            }
+            return redirect(url_for('home'))
+
     return render_template('login.html')
 
 @app.route('/logout')
@@ -250,6 +330,13 @@ def kits():
             else:
                 item_color = color_map.get(display_name.split()[0].upper(), '#00ffff')
                 item_icon = raw_icon
+                
+            if 'http' in item_icon:
+                icon_type = 'image'
+            elif any(ord(c) > 127 for c in item_icon) or len(item_icon) < 3:
+                icon_type = 'emoji'
+            else:
+                icon_type = 'lucide'
             
             ranks.append({
                 'id': i.get('id'),
@@ -257,6 +344,7 @@ def kits():
                 'price': i.get('price', ''),
                 'color': item_color,
                 'icon': item_icon,
+                'icon_type': icon_type,
                 'desc': i.get('description', '')
             })
     return render_template('kits.html', ranks=ranks)
@@ -266,7 +354,36 @@ def store():
     items = []
     all_d = get_cached_items()
     for i in all_d:
-        if not str(i.get('name', '')).startswith('KIT::'):
+        name = str(i.get('name', ''))
+        if not name.startswith('KIT::') and not name.startswith('USER::') and not name.startswith('ADMIN::') and not name.startswith('PROMO::') and not name.startswith('MONEY::'):
+            raw_icon = i.get('icon', '💎')
+            if '|' in raw_icon:
+                item_color, item_icon = raw_icon.split('|', 1)
+            else:
+                item_color = 'var(--neon-green)'
+                item_icon = raw_icon
+                
+            if 'http' in item_icon:
+                icon_type = 'image'
+            elif any(ord(c) > 127 for c in item_icon) or len(item_icon) < 3:
+                icon_type = 'emoji'
+            else:
+                icon_type = 'lucide'
+            
+            i['color'] = item_color
+            i['icon'] = item_icon
+            i['icon_type'] = icon_type
+            items.append(i)
+    return render_template('store.html', items=items)
+
+@app.route('/moneyshop')
+def moneyshop():
+    items = []
+    all_d = get_cached_items()
+    for i in all_d:
+        name = str(i.get('name', ''))
+        if name.startswith('MONEY::'):
+            display_name = name.replace('MONEY::', '')
             raw_icon = i.get('icon', '💎')
             if '|' in raw_icon:
                 item_color, item_icon = raw_icon.split('|', 1)
@@ -274,10 +391,23 @@ def store():
                 item_color = 'var(--neon-green)'
                 item_icon = raw_icon
             
-            i['color'] = item_color
-            i['icon'] = item_icon
-            items.append(i)
-    return render_template('store.html', items=items)
+            icon_type = 'icon'
+            if item_icon.startswith('http'):
+                icon_type = 'image'
+            elif len(item_icon) <= 2 and not item_icon.isascii():
+                icon_type = 'emoji'
+                
+            items.append({
+                'id': i.get('id'),
+                'raw_name': name,
+                'name': display_name,
+                'price': i.get('price', ''),
+                'color': item_color,
+                'icon': item_icon,
+                'icon_type': icon_type,
+                'desc': i.get('description', '')
+            })
+    return render_template('moneyshop.html', items=items)
 
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
@@ -291,26 +421,52 @@ def admin():
         return render_template('admin_login.html')
     
     tab = request.args.get('tab', 'store')
-    items, orders, kits = [], [], []
+    items, orders, kits, admins, promos, registered_users, moneyshop_items = [], [], [], [], [], [], []
     if supabase:
         try:
             all_i = supabase.table('items').select('*').order('id', desc=True).execute().data
             for i in all_i:
+                if i['name'].startswith('USER::'):
+                    i['display_name'] = i['name'].replace('USER::', '')
+                    registered_users.append(i)
+                    continue
+                elif i['name'].startswith('ADMIN::'):
+                    i['display_name'] = i['name'].replace('ADMIN::', '')
+                    admins.append(i)
+                    continue
+                elif i['name'].startswith('PROMO::'):
+                    i['display_name'] = i['name'].replace('PROMO::', '')
+                    promos.append(i)
+                    continue
+                    
                 raw_icon = i.get('icon', '💎')
                 if '|' in raw_icon:
                     i['color'], i['icon'] = raw_icon.split('|', 1)
                 else:
                     i['color'] = '#00ffff'
+                    
+                if 'http' in i['icon']:
+                    i['icon_type'] = 'image'
+                elif any(ord(c) > 127 for c in i['icon']) or len(i['icon']) < 3:
+                    i['icon_type'] = 'emoji'
+                else:
+                    i['icon_type'] = 'lucide'
                 
                 if i['name'].startswith('KIT::'):
                     i['display_name'] = i['name'].replace('KIT::', '')
                     kits.append(i)
+                elif i['name'].startswith('PROMO::'):
+                    i['display_name'] = i['name'].replace('PROMO::', '')
+                    promos.append(i)
+                elif i['name'].startswith('MONEY::'):
+                    i['display_name'] = i['name'].replace('MONEY::', '')
+                    moneyshop_items.append(i)
                 else:
                     items.append(i)
             
             orders = supabase.table('orders').select('*').order('id', desc=True).execute().data
         except: pass
-    return render_template('admin.html', items=items, orders=orders, kits=kits, tab=tab)
+    return render_template('admin.html', items=items, orders=orders, kits=kits, admins=admins, promos=promos, users=registered_users, moneyshop_items=moneyshop_items, tab=tab)
 
 # API Routes
 @app.route('/api/stats')
@@ -341,20 +497,99 @@ def add_comment():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/buy', methods=['POST'])
+@app.route('/api/buy', methods=['POST', 'OPTIONS'])
 def api_buy():
+    if request.method == 'OPTIONS':
+        return jsonify({'success': True})
     if not supabase: return jsonify({'error': 'Supabase ma\'lumotlar bazasi topilmadi!'}), 500
     if not session.get('user'): return jsonify({'error': 'Avval login qiling!'}), 401
+    
     item_name = request.json.get('item_name')
-    price = request.json.get('price')
+    price_str = request.json.get('price', '')
+    method = request.json.get('method', 'card')
+    user_name = session['user']['name']
+    
     try:
-        supabase.table('orders').insert({
-            'player_name': session['user']['name'],
-            'item_name': item_name,
-            'price': price,
-            'status': 'Kutilmoqda'
-        }).execute()
-        return jsonify({'success': True})
+        user_res = supabase.table('items').select('*').eq('name', f"USER::{user_name}").execute()
+        if not user_res.data:
+            return jsonify({'error': 'Foydalanuvchi topilmadi!'}), 404
+        
+        user_record = user_res.data[0]
+        price_field = str(user_record.get('price', '0|0'))
+        c, t = 0, 0
+        if '|' in price_field:
+            try:
+                c, t = int(price_field.split('|')[0]), int(price_field.split('|')[1])
+            except: pass
+        
+        if method == 'balance':
+            # Balance purchase
+            cost = int(''.join(filter(str.isdigit, price_str)))
+            if 'COIN' in price_str.upper():
+                if c < cost: return jsonify({'error': 'COIN yetarli emas!'}), 400
+                c -= cost
+            elif 'TOKEN' in price_str.upper():
+                if t < cost: return jsonify({'error': 'TOKEN yetarli emas!'}), 400
+                t -= cost
+            else:
+                return jsonify({'error': 'Noto\'g\'ri valyuta!'}), 400
+            
+            # Update balance
+            supabase.table('items').update({'price': f"{c}|{t}"}).eq('id', user_record['id']).execute()
+            
+            # If buying COIN or TOKEN using Balance
+            if 'COIN' in item_name.upper() or 'TOKEN' in item_name.upper():
+                amount = int(''.join(filter(str.isdigit, item_name)))
+                if 'COIN' in item_name.upper():
+                    c += amount
+                else:
+                    t += amount
+                supabase.table('items').update({'price': f"{c}|{t}"}).eq('id', user_record['id']).execute()
+                supabase.table('orders').insert({
+                    'player_name': user_name,
+                    'item_name': item_name,
+                    'price': price_str,
+                    'status': 'Bajarildi'
+                }).execute()
+                return jsonify({'success': True, 'new_balance': f"{c}|{t}"})
+            
+            # Regular store item
+            supabase.table('orders').insert({
+                'player_name': user_name,
+                'item_name': item_name,
+                'price': price_str,
+                'status': 'Kutilmoqda' # Still needs admin approval or system processing
+            }).execute()
+            return jsonify({'success': True, 'new_balance': f"{c}|{t}"})
+            
+        else:
+            # Card purchase
+            # If buying COIN or TOKEN, credit immediately
+            if 'COIN' in item_name.upper() or 'TOKEN' in item_name.upper():
+                amount = int(''.join(filter(str.isdigit, item_name)))
+                if 'COIN' in item_name.upper(): c += amount
+                if 'TOKEN' in item_name.upper(): t += amount
+                
+                supabase.table('items').update({'price': f"{c}|{t}"}).eq('id', user_record['id']).execute()
+                
+                # Record as Bajarildi
+                supabase.table('orders').insert({
+                    'player_name': user_name,
+                    'item_name': item_name,
+                    'price': price_str,
+                    'status': 'Bajarildi'
+                }).execute()
+                return jsonify({'success': True})
+            else:
+                # Regular store item via Card
+                supabase.table('orders').insert({
+                    'player_name': user_name,
+                    'item_name': item_name,
+                    'price': price_str,
+                    'status': 'Kutilmoqda'
+                }).execute()
+                return jsonify({'success': True})
+                
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -370,8 +605,30 @@ def api_admin(action):
                 'description': request.json.get('description'),
                 'icon': request.json.get('icon', '💎')
             }).execute()
+        elif action == 'add_admin':
+            # Store admin in items table with ADMIN:: prefix
+            supabase.table('items').insert({
+                'name': f"ADMIN::{request.json.get('login')}",
+                'description': request.json.get('password'),
+                'price': '0',
+                'icon': 'shield'
+            }).execute()
+        elif action == 'add_promo':
+            supabase.table('items').insert({
+                'name': f"PROMO::{request.json.get('code')}",
+                'description': request.json.get('discount'),
+                'price': '0',
+                'icon': 'ticket'
+            }).execute()
         elif action == 'delete_item':
             supabase.table('items').delete().eq('id', request.json.get('id')).execute()
+        elif action == 'edit_item':
+            supabase.table('items').update({
+                'name': request.json.get('name'),
+                'price': request.json.get('price'),
+                'description': request.json.get('description'),
+                'icon': request.json.get('icon')
+            }).eq('id', request.json.get('id')).execute()
         elif action == 'complete_order':
             supabase.table('orders').update({'status': 'Bajarildi'}).eq('id', request.json.get('id')).execute()
         elif action == 'delete_order':
@@ -388,6 +645,32 @@ def api_admin(action):
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/users', methods=['POST'])
+def admin_update_user():
+    if not session.get('is_admin'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    data = request.json
+    username = data.get('username')
+    coins = data.get('coins')
+    tokens = data.get('tokens')
+    
+    if not username:
+        return jsonify({'error': 'Username is required'})
+        
+    try:
+        user_record = supabase.table('items').select('*').eq('name', f"USER::{username}").execute()
+        if not user_record.data:
+            return jsonify({'error': 'Foydalanuvchi topilmadi'})
+            
+        uid = user_record.data[0]['id']
+        new_price = f"{coins}|{tokens}"
+        
+        supabase.table('items').update({'price': new_price}).eq('id', uid).execute()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)})
 
 @app.route('/debug-db')
 def debug_db():
@@ -407,8 +690,8 @@ def search_player():
         
     return jsonify({
         'name': name,
-        'avatar': f'https://mc-heads.net/avatar/{safe_name}/100',
-        'bodyUrl': f'https://mc-heads.net/player/body/{safe_name}/400',
+        'avatar': f'https://api.dicebear.com/9.x/pixel-art/svg?seed={safe_name}',
+        'bodyUrl': f'https://api.dicebear.com/9.x/adventurer/svg?seed={safe_name}',
         'p_rank': 'PLAYER', # Mocking some defaults for search view, could query DB too
         'active_kit': "Yo'q"  
     })

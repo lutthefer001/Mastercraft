@@ -5,12 +5,19 @@
     <h1 style="font-size: 5rem; text-align: center; margin-bottom: 6rem;"><span class="text-gradient">SERVER SHOP</span></h1>
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 4rem; max-width: 1300px; margin: 0 auto;">
         {% for item in items %}
-        <div class="glass animate-float" style="padding: 4rem 3rem; border-radius: 30px; text-align: center; border: 1px solid {{ item.color }}; box-shadow: 0 0 20px {{ item.color }}22;">
+        <div class="glass animate-float" style="position: relative; padding: 4rem 3rem; border-radius: 30px; text-align: center; border: 1px solid {{ item.color }}; box-shadow: 0 0 20px {{ item.color }}22;">
+            {% if session.get('is_admin') %}
+            <button onclick="openEditModal('{{ item.id }}', '{{ item.name|escape }}', '{{ item.price|escape }}', '{{ item.desc|escape|replace('\n', '\\n')|replace('\'', '\\\'') }}', '{{ item.icon|escape|replace('\'', '\\\'') }}', '{{ item.color }}')" style="position: absolute; top: 15px; right: 15px; background: transparent; border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 8px; border-radius: 10px; cursor: pointer; z-index: 10;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">
+                <i data-lucide="edit-2" style="width: 18px; height: 18px;"></i>
+            </button>
+            {% endif %}
             <div style="font-size: 6rem; margin-bottom: 2rem; height: 100px;">
-                {% if 'http' in item.icon %}
+                {% if item.icon_type == 'image' %}
                     <img src="{{ item.icon }}" style="width: 100px; height: 100px; object-fit: contain;">
+                {% elif item.icon_type == 'emoji' %}
+                    <div style="font-size: 6rem; line-height: 1;">{{ item.icon }}</div>
                 {% else %}
-                    {{ item.icon }}
+                    <i data-lucide="{{ item.icon }}" style="width: 100px; height: 100px;"></i>
                 {% endif %}
             </div>
             <h2 style="font-size: 2.5rem; color: {{ item.color }};">{{ item.name }}</h2>

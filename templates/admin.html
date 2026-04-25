@@ -144,6 +144,12 @@
         <a href="?tab=kits" class="admin-nav-item {{ 'active' if tab == 'kits' else '' }}">
             <i data-lucide="crown"></i> Kit & Ranklar
         </a>
+        <a href="?tab=moneyshop" class="admin-nav-item {{ 'active' if tab == 'moneyshop' else '' }}">
+            <i data-lucide="coins"></i> Money Shop
+        </a>
+        <a href="?tab=users" class="admin-nav-item {{ 'active' if tab == 'users' else '' }}">
+            <i data-lucide="user-check"></i> Foydalanuvchilar
+        </a>
         <a href="?tab=promocodes" class="admin-nav-item {{ 'active' if tab == 'promocodes' else '' }}">
             <i data-lucide="ticket"></i> Promokodlar
         </a>
@@ -239,26 +245,33 @@
             </div>
         {% endif %}
 
-        {% if tab == 'store' or tab == 'kits' %}
+        {% if tab == 'store' or tab == 'kits' or tab == 'moneyshop' %}
             <div class="admin-header">
-                <h1 style="font-family: 'Space Grotesk'; font-size: 2.5rem;">{{ 'Do\'kon Tovarlari' if tab == 'store' else 'Kit va Ranklar' }} <span class="text-gradient">Boshqaruvi</span></h1>
+                <h1 style="font-family: 'Space Grotesk'; font-size: 2.5rem;">{{ 'Do\'kon Tovarlari' if tab == 'store' else ('Kit va Ranklar' if tab == 'kits' else 'Money Shop') }} <span class="text-gradient">Boshqaruvi</span></h1>
             </div>
             <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 3rem;">
                 <div class="glass" style="padding: 2.5rem; border-radius: 24px; height: fit-content; position: sticky; top: 2rem;">
                     <h3>YANGI QO'SHISH</h3>
                     <form onsubmit="adminAction(event, 'add_item')" style="display: flex; flex-direction: column; gap: 1.5rem; margin-top: 2rem;">
-                        <input type="hidden" id="item-type" value="{{ 'KIT' if tab == 'kits' else 'STORE' }}" />
+                        <input type="hidden" id="item-type" value="{{ 'KIT' if tab == 'kits' else ('MONEY' if tab == 'moneyshop' else 'STORE') }}" />
                         <div>
                             <label style="color:#888; font-size:0.9rem; margin-bottom: 5px; display:block;">Nomi</label>
-                            <input class="admin-input" id="item-name" placeholder="Masalan: MVP+ yoki Qilich" required />
+                            <input class="admin-input" id="item-name" placeholder="{{ 'Masalan: 1000 COIN yoki 50 TOKEN' if tab == 'moneyshop' else ('Masalan: MVP+ yoki VIP' if tab == 'kits' else 'Masalan: Qilich yoki Zirx') }}" required />
                         </div>
                         <div>
-                            <label style="color:#888; font-size:0.9rem; margin-bottom: 5px; display:block;">Narxi (So'm yoki Coin)</label>
-                            <input class="admin-input" id="item-price" placeholder="Masalan: 15,000 UZS" required />
+                            <label style="color:#888; font-size:0.9rem; margin-bottom: 5px; display:block;">Narxi</label>
+                            <div style="display: flex; gap: 10px;">
+                                <input class="admin-input" id="item-price-val" placeholder="Masalan: 15000" required style="flex: 2;" />
+                                <select class="admin-input" id="item-currency" style="flex: 1;">
+                                    <option value="UZS">UZS</option>
+                                    <option value="COIN">COIN</option>
+                                    <option value="TOKEN">TOKEN</option>
+                                </select>
+                            </div>
                         </div>
                         <div>
                             <label style="color:#888; font-size:0.9rem; margin-bottom: 5px; display:block;">Tavsif (Qisqacha)</label>
-                            <textarea class="admin-input" id="item-desc" placeholder="Ushbu tovar orqali nimalar beriladi?" rows="4" required></textarea>
+                            <textarea class="admin-input" id="item-desc" placeholder="{{ 'Masalan: Ushbu paket orqali 1000 Coin olasiz' if tab == 'moneyshop' else 'Ushbu tovar orqali nimalar beriladi?' }}" rows="4" required></textarea>
                         </div>
                         <div>
                             <label style="color:#888; font-size:0.9rem; margin-bottom: 5px; display:block;">Rasm URL manzili yoki Emoji</label>
@@ -267,7 +280,7 @@
                         <div>
                             <label style="color:#888; font-size:0.9rem; margin-bottom: 5px; display:block;">Mavzu Rangi (Glow)</label>
                             <div style="display: flex; gap: 10px; align-items: center;">
-                                <input type="color" id="item-color" value="#00ffff" style="width: 50px; height: 50px; border: none; background: transparent; cursor: pointer; border-radius: 10px;">
+                                <input type="color" id="item-color" value="#00ffff" style="width: 50px; height: 50px; border: none; background: transparent; cursor: pointer; border-radius: 10px;" oninput="document.getElementById('item-color-hex').value = this.value">
                                 <input type="text" id="item-color-hex" class="admin-input" value="#00ffff" style="flex: 1; font-family: monospace;" oninput="document.getElementById('item-color').value = this.value">
                             </div>
                         </div>
@@ -276,7 +289,7 @@
                 </div>
                 
                 <div style="display: flex; flex-direction: column; gap: 1.5rem;">
-                    {% set current_items = kits if tab == 'kits' else items %}
+                    {% set current_items = kits if tab == 'kits' else (moneyshop_items if tab == 'moneyshop' else items) %}
                     {% if current_items|length == 0 %}
                         <div style="color: #aaa; text-align: center; padding: 2rem;">Hozircha hech narsa yo'q, qo'shvor.</div>
                     {% endif %}
@@ -284,10 +297,22 @@
                     <div class="glass" style="padding: 2rem; border-radius: 20px; display: flex; justify-content: space-between; align-items: center;">
                         <div style="display: flex; gap: 1.5rem; align-items: center;">
                             <div style="font-size: 3rem; background: rgba(0,255,255,0.1); padding: 10px 20px; border-radius: 15px; width: 100px; text-align: center;">
-                                {% if 'http' in i.icon %}<img src="{{ i.icon }}" style="width:100%; object-fit:contain;">{% else %}{{ i.icon }}{% endif %}
+                                {% if '|' in i.icon %}
+                                    {% set parts = i.icon.split('|', 1) %}
+                                    {% set cicon = parts[1] %}
+                                    {% if cicon.startswith('http') %}
+                                        <img src="{{ cicon }}" style="width:100%; object-fit:contain;">
+                                    {% elif cicon|length <= 2 and not cicon.isascii() %}
+                                        <div style="font-size: 3rem; line-height: 1;">{{ cicon }}</div>
+                                    {% else %}
+                                        <i data-lucide="{{ cicon }}" style="width: 3rem; height: 3rem;"></i>
+                                    {% endif %}
+                                {% else %}
+                                    <i data-lucide="{{ i.icon }}" style="width: 3rem; height: 3rem;"></i>
+                                {% endif %}
                             </div>
                             <div>
-                                <h3 style="font-size: 1.5rem; margin-bottom: 5px;">{{ i.display_name if tab == 'kits' else i.name }}</h3>
+                                <h3 style="font-size: 1.5rem; margin-bottom: 5px;">{{ i.display_name if (tab == 'kits' or tab == 'moneyshop') else i.name }}</h3>
                                 <p style="color: #aaa; font-size: 0.95rem; margin-bottom: 10px;">{{ i.description }}</p>
                                 <div class="text-gradient" style="font-weight: 800; font-size: 1.2rem;">{{ i.price }}</div>
                             </div>
@@ -299,28 +324,79 @@
             </div>
         {% endif %}
 
+        {% if tab == 'users' %}
+            <div class="admin-header">
+                <h1 style="font-family: 'Space Grotesk'; font-size: 2.5rem;">Foydalanuvchilar <span class="text-gradient">Balansi</span></h1>
+            </div>
+            <div class="glass" style="padding: 2.5rem; border-radius: 24px;">
+                <table class="data-table" style="width: 100%; text-align: left; border-collapse: collapse;">
+                    <thead>
+                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); color: var(--neon-cyan);">
+                            <th style="padding: 15px;">Foydalanuvchi Ismi</th>
+                            <th style="padding: 15px;">Coin Balansi</th>
+                            <th style="padding: 15px;">Token Balansi</th>
+                            <th style="padding: 15px; text-align: right;">Boshqaruv</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in registered_users %}
+                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                            <td style="padding: 15px; font-weight: bold;">{{ user.display_name }}</td>
+                            <td style="padding: 15px; color: var(--neon-green);">
+                                <input class="admin-input" id="user-coin-{{ user.id }}" value="{{ user.price.split('|')[0] if '|' in user.price else 0 }}" style="width: 100px; padding: 5px;" />
+                            </td>
+                            <td style="padding: 15px; color: var(--neon-orange);">
+                                <input class="admin-input" id="user-token-{{ user.id }}" value="{{ user.price.split('|')[1] if '|' in user.price else 0 }}" style="width: 100px; padding: 5px;" />
+                            </td>
+                            <td style="padding: 15px; text-align: right;">
+                                <button class="btn btn-neon" style="padding: 5px 15px; font-size: 0.9rem;" onclick="updateUserBal('{{ user.display_name }}', document.getElementById('user-coin-{{ user.id }}').value, document.getElementById('user-token-{{ user.id }}').value)">SAQLASH</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <script>
+                function updateUserBal(username, coins, tokens) {
+                    fetch('/api/admin/users', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, coins, tokens })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if(data.error) showToast(data.error, 'error');
+                        else showToast('Muvaffaqiyatli saqlandi!', 'success');
+                    });
+                }
+            </script>
+        {% endif %}
+
         {% if tab == 'promocodes' %}
             <div class="admin-header">
                 <h1 style="font-family: 'Space Grotesk'; font-size: 2.5rem;">Chegirma <span class="text-gradient">Promokodlari</span></h1>
             </div>
             <div class="glass" style="padding: 2.5rem; border-radius: 24px; margin-bottom: 2rem;">
                 <h3>YANGI PROMOKOD YARATISH</h3>
-                <p style="color: #aaa; margin-top: 10px; margin-bottom: 20px;">O'yinchilarga xaridlar uchun chegirma beradigan kodlar yaratish. (*Hozircha Promokod API faollashtirilmagan)</p>
-                <form onsubmit="event.preventDefault(); alert('Sizning tarifingizda Promokodlar yoqilmagan. Iltimos Vercel serveringizni yangilang.');" style="display: flex; gap: 1rem;">
-                    <input class="admin-input" placeholder="Kod (masalan: Yoz2026)" required style="flex: 1;" />
-                    <input type="number" class="admin-input" placeholder="Foiz (%)" required style="width: 150px;" />
+                <p style="color: #aaa; margin-top: 10px; margin-bottom: 20px;">O'yinchilarga xaridlar uchun chegirma beradigan kodlar yaratish.</p>
+                <form onsubmit="adminActionPromo(event)" style="display: flex; gap: 1rem;">
+                    <input id="promo-code" class="admin-input" placeholder="Kod (masalan: Yoz2026)" required style="flex: 1;" />
+                    <input id="promo-discount" type="number" class="admin-input" placeholder="Foiz (%)" required style="width: 150px;" />
                     <button class="btn btn-neon" type="submit">YARATISH</button>
                 </form>
             </div>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
-                <div class="glass" style="padding: 1.5rem; border-radius: 16px;">
-                    <div style="display: flex; justify-content: space-between;">
-                        <h3 style="color: var(--neon-green);">YANGIYIL</h3>
-                        <span style="background: rgba(255,0,0,0.2); color: #ff4444; padding: 2px 8px; border-radius: 8px;">Muddati o'tgan</span>
+                {% for p in promos %}
+                <div class="glass" style="padding: 1.5rem; border-radius: 16px; position: relative;">
+                    <button onclick="if(confirm('Ushbu promokodni o\'chirmoqchimisiz?')) adminActionDelete(event, 'delete_item', '{{ p.id }}')" style="position:absolute; top: 1rem; right: 1rem; background: transparent; border: none; color: #ff5555; cursor: pointer;"><i data-lucide="trash-2"></i></button>
+                    <div style="display: flex; justify-content: space-between; margin-right: 2rem;">
+                        <h3 style="color: var(--neon-green);">{{ p.display_name }}</h3>
+                        <span style="background: rgba(0,255,0,0.1); color: #55ff55; padding: 2px 8px; border-radius: 8px;">Faol</span>
                     </div>
-                    <p style="color: #888; margin-top: 10px;">Chegirma: 20%</p>
-                    <p style="color: #555; margin-top: 5px; font-size: 0.9rem;">Foydalanildi: 153 marta</p>
+                    <p style="color: #888; margin-top: 10px;">Chegirma: {{ p.description }}%</p>
                 </div>
+                {% endfor %}
             </div>
         {% endif %}
 
@@ -331,12 +407,45 @@
             <div class="glass" style="padding: 2.5rem; border-radius: 24px; margin-bottom: 2rem;">
                 <h3>O'YINCHINI BLOKLASH (BAN)</h3>
                 <p style="color: #aaa; margin-top: 10px; margin-bottom: 20px;">O'yinchining serverga va saytga kirishini cheklab qo'yish (IP-BAN darajasida).</p>
-                <form onsubmit="event.preventDefault(); alert('Ban qilingan playerlar darxol RCON orqali serverdan chiqarib yuboriladi.');" style="display: flex; gap: 1rem;">
+                <form onsubmit="event.preventDefault(); showToast('Ban qilingan playerlar darxol RCON orqali serverdan chiqarib yuboriladi.', 'success');" style="display: flex; gap: 1rem;">
                     <input class="admin-input" placeholder="O'yinchi niki (Nick)" required style="flex: 1;" />
                     <input class="admin-input" placeholder="Sabab" required style="flex: 2;" />
                     <button class="btn btn-danger" type="submit"><i data-lucide="shield-alert"></i> BAN BERISH</button>
                 </form>
             </div>
+            
+            <div class="glass" style="padding: 2.5rem; border-radius: 24px; margin-bottom: 2rem;">
+                <h3 style="margin-bottom: 1.5rem;"><i data-lucide="users" style="vertical-align: -5px; margin-right: 10px; color: var(--neon-cyan);"></i>Ro'yxatdan O'tgan O'yinchilar</h3>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>O'yinchi</th>
+                                <th>Ro'yxatdan O'tgan</th>
+                                <th>Harakat</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for u in users %}
+                            <tr>
+                                <td>
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <img src="{{ u.icon }}" style="width: 40px; border-radius: 50%;">
+                                        <div style="font-weight: bold; font-family: 'Space Grotesk'; font-size: 1.1rem; color: var(--neon-cyan);">{{ u.display_name }}</div>
+                                    </div>
+                                </td>
+                                <td><span style="background: rgba(0,255,0,0.1); color: #55ff55; padding: 5px 10px; border-radius: 8px;"><i data-lucide="check-circle" style="width: 14px; margin-right: 5px; vertical-align: -2px;"></i> Tizimda mavjud</span></td>
+                                <td><button onclick="if(confirm('Ushbu o\'yinchini ro\'yxatdan o\'chirib yubormoqchimisiz?')) adminActionDelete(event, 'delete_item', '{{ u.id }}')" class="btn btn-danger" style="padding: 10px 15px; border-radius: 10px;"><i data-lucide="trash-2"></i></button></td>
+                            </tr>
+                            {% endfor %}
+                            {% if users|length == 0 %}
+                            <tr><td colspan="3" style="text-align: center; color: #888; padding: 2rem;">Hozircha hech kim ro'yxatdan o'tmagan.</td></tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <div class="glass" style="padding: 2rem; border-radius: 24px;">
                 <h3 style="margin-bottom: 1rem;"><i data-lucide="list-x" style="vertical-align: -5px; margin-right: 10px;"></i>Qoraro'yxatdagi o'yinchilar</h3>
                 <div style="color: #aaa; text-align: center; padding: 2rem;">Hozircha hech kim bloklanmagan. Server toza!</div>
@@ -350,10 +459,10 @@
             
             <div class="glass" style="padding: 2.5rem; border-radius: 24px; margin-bottom: 3rem;">
                 <h3 style="margin-bottom: 1rem;">Yangi Moderator Yoki Admin Qo'shish</h3>
-                <p style="color: #aaa; margin-bottom: 2rem;">Hozircha tizim faqat asosiy bitta "Master" adminini qabul qiladi. Ammo kelajakda boshqalar uchun ham huquq berasiz.</p>
-                <form onsubmit="event.preventDefault(); alert('Muvaffaqiyatli! Profil vaqtincha faol qilinmagan. DB ruxsati kutilmoqda.');" style="display: flex; gap: 1rem;">
-                    <input class="admin-input" placeholder="Yangi login..." required style="flex: 1;" />
-                    <input class="admin-input" placeholder="Vaqtinchalik parol..." required style="flex: 1;" />
+                <p style="color: #aaa; margin-bottom: 2rem;">Boshqalar uchun ham huquq berasiz.</p>
+                <form onsubmit="adminActionAdmin(event)" style="display: flex; gap: 1rem;">
+                    <input id="admin-login" class="admin-input" placeholder="Yangi login..." required style="flex: 1;" />
+                    <input id="admin-password" class="admin-input" placeholder="Vaqtinchalik parol..." required style="flex: 1;" />
                     <button class="btn btn-neon" type="submit">QO'SHISH</button>
                 </form>
             </div>
@@ -383,6 +492,22 @@
                             <td><span style="color: var(--neon-green);"><i data-lucide="circle-dot" style="width: 12px; margin-right: 5px;"></i>Online</span></td>
                             <td><button class="btn" disabled style="background: transparent; border: 1px solid #444; color: #666; padding: 8px 15px;">Daxlsiz</button></td>
                         </tr>
+                        {% for a in admins %}
+                        <tr>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <div style="width: 40px; height: 40px; background: #555; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">{{ a.display_name[0] | upper }}</div>
+                                    <div>
+                                        <div style="font-weight: bold;">{{ a.display_name }}</div>
+                                        <div style="font-size: 0.8rem; color: #888;">Moderator</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td><span style="background: rgba(0,255,255,0.1); color: var(--neon-cyan); padding: 5px 10px; border-radius: 8px;">Admin</span></td>
+                            <td><span style="color: #aaa;"><i data-lucide="circle" style="width: 12px; margin-right: 5px;"></i>Offline</span></td>
+                            <td><button onclick="if(confirm('O\'chirmoqchimisiz?')) adminActionDelete(event, 'delete_item', '{{ a.id }}')" class="btn btn-danger" style="padding: 8px 15px;"><i data-lucide="trash-2" style="width:16px; height:16px;"></i></button></td>
+                        </tr>
+                        {% endfor %}
                     </tbody>
                 </table>
             </div>
@@ -396,7 +521,7 @@
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3rem;">
                 <div class="glass" style="padding: 2.5rem; border-radius: 24px;">
                     <h3 style="margin-bottom: 2rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1rem;"><i data-lucide="server" style="margin-right: 10px; vertical-align: middle;"></i> Server IP Sozlamasi</h3>
-                    <form onsubmit="alert('O\'zgartirishlar saqlandi! Ammo hozircha statik.'); return false;" style="display: flex; flex-direction: column; gap: 1.5rem;">
+                    <form onsubmit="event.preventDefault(); showToast('O\'zgartirishlar saqlandi! Ammo hozircha statik.', 'success');" style="display: flex; flex-direction: column; gap: 1.5rem;">
                         <div>
                             <label style="color:#888; display:block; margin-bottom: 8px;">Joriy IP manzil</label>
                             <input class="admin-input" value="mc.mastercraft.uz" />
@@ -428,7 +553,7 @@
                 <h3 style="color: red; margin-bottom: 1rem;"><i data-lucide="alert-triangle" style="margin-right: 10px; vertical-align: middle;"></i> Xavfli Hudud</h3>
                 <p style="color: #aaa; margin-bottom: 2rem;">Diqqat! Sayt keshini yoki barcha ma'lumotlarni o'chirish qaytarib bo'lmaydigan jarayon hisoblanadi.</p>
                 <div style="display: flex; gap: 1rem;">
-                    <button class="btn btn-danger" onclick="alert('Kesh tozalandi!')" style="padding: 12px 25px;"><i data-lucide="refresh-cw" style="margin-right: 8px;"></i> Keshni Tozalash</button>
+                    <button class="btn btn-danger" onclick="showToast('Kesh tozalandi!', 'success')" style="padding: 12px 25px;"><i data-lucide="refresh-cw" style="margin-right: 8px;"></i> Keshni Tozalash</button>
                     <button class="btn" style="background: transparent; border: 1px solid #444; color: #666; padding: 12px 25px;" disabled><i data-lucide="trash" style="margin-right: 8px;"></i> Barcha buyurtmalarni o'chirish</button>
                 </div>
             </div>

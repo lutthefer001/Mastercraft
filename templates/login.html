@@ -4,10 +4,24 @@
 <div style="display: flex; justify-content: center; padding: 10rem 2rem;">
     <div class="glass" style="padding: 3rem; border-radius: 30px; width: 450px; text-align: center;">
         <i data-lucide="user" style="width: 60px; height: 60px; color: var(--neon-green); margin-bottom: 2rem;"></i>
-        <h2 style="font-size: 2rem; margin-bottom: 2.5rem;">PLAYER <span class="text-gradient">REGISTER</span></h2>
+        <h2 style="font-size: 2rem; margin-bottom: 2.5rem;">PLAYER <span class="text-gradient">AUTH</span></h2>
+        
+        {% if error %}
+        <div style="background: rgba(255,0,0,0.1); color: #ff5555; padding: 10px; border-radius: 10px; margin-bottom: 1rem; border: 1px solid #ff5555;">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <div style="display: flex; gap: 10px; margin-bottom: 2rem; justify-content: center;">
+            <button class="btn" onclick="document.getElementById('action').value='login'; document.getElementById('submit-btn').innerText='KIRISH';" style="flex: 1; border: 1px solid var(--neon-cyan); background: transparent; color: var(--neon-cyan);">LOGIN</button>
+            <button class="btn" onclick="document.getElementById('action').value='register'; document.getElementById('submit-btn').innerText='RO\'YXATDAN O\'TISH';" style="flex: 1; border: 1px solid var(--neon-green); background: transparent; color: var(--neon-green);">REGISTER</button>
+        </div>
+
         <form method="POST" style="display: flex; flex-direction: column; gap: 1.2rem;">
+            <input type="hidden" name="action" id="action" value="login" />
             <input class="admin-input" name="name" placeholder="O'yindagi ismingiz" required />
-            <button class="btn btn-neon" type="submit">ENTER SERVER SITE</button>
+            <input class="admin-input" type="password" name="password" placeholder="Parolingiz" required />
+            <button id="submit-btn" class="btn btn-neon" type="submit">KIRISH</button>
         </form>
     </div>
 </div>
